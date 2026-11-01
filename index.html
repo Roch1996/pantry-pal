@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900 font-sans antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pantry Pal - Kitchen Expiry Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            400: '#34d399',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        },
+                        amber: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                        },
+                        rose: {
+                            500: '#f43f5e',
+                            600: '#e11d48',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-nav {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .pulse-ring {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+            animation: pulse-animation 1.5s infinite;
+        }
+        @keyframes pulse-animation {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+            70% { box-shadow: 0 0 0 18px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .badge-glow {
+            box-shadow: 0 0 12px currentColor;
+        }
+    </style>
+</head>
+<body class="h-full text-slate-100 flex justify-center items-center bg-slate-950 sm:py-6">
+
+    <!-- App Mobile Frame Container -->
+    <div class="w-full max-w-md h-full sm:h-[844px] bg-slate-900 sm:rounded-[40px] shadow-2xl flex flex-col overflow-hidden relative border border-slate-800">
+
+        <!-- Top Header -->
+        <header class="pt-6 pb-4 px-5 bg-gradient-to-b from-slate-900 via-slate-900 to-transparent z-20">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+                        <i class="fa-solid fa-leaf"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-white leading-tight">PantryPal</h1>
+                        <p class="text-xs text-slate-400">Smart Zero-Waste Tracker</p>
+                    </div>
+                </div>
+                <!-- Quick Stats Badge -->
+                <button onclick="switchTab('planner')" class="px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold flex items-center gap-2 hover:bg-emerald-500/20 transition-all">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span id="savedCountText">0 Meals Ready</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Scrollable Content Window -->
+        <main class="flex-1 overflow-y-auto px-5 pb-24 hide-scrollbar space-y-5">
+
+            <!-- TAB 1: INVENTORY DASHBOARD -->
+            <section id="tab-inventory" class="tab-content space-y-5">
+
+                <!-- Expiry Summary Cards Grid -->
+                <div class="grid grid-cols-3 gap-2.5">
+                    <!-- Expired Card -->
+                    <div onclick="filterByStatus('expired')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-rose-500/40 transition-all text-center group">
+                        <div class="text-xs font-medium text-rose-400 mb-1 flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-circle-exclamation text-[10px]"></i> Expired
+                        </div>
+                        <div class="text-2xl font-black text-white" id="statExpired">0</div>
+                        <div class="text-[10px] text-slate-400 mt-1">Action needed</div>
+                    </div>
+
+                    <!-- Critical Card (<7 Days) -->
+                    <div onclick="filterByStatus('critical')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-amber-500/40 transition-all text-center group">
+                        <div class="text-xs font-medium text-amber-400 mb-1 flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-clock text-[10px]"></i> &lt; 7 Days
+                        </div>
+                        <div class="text-2xl font-black text-white" id="statCritical">0</div>
+                        <div class="text-[10px] text-slate-400 mt-1">Cook soon</div>
+                    </div>
+
+                    <!-- Good Condition Card -->
+                    <div onclick="filterByStatus('good')" class="glass-card p-3 rounded-2xl cursor-pointer hover:border-emerald-500/40 transition-all text-center group">
+                        <div class="text-xs font-medium text-emerald-400 mb-1 flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-shield-halved text-[10px]"></i> Safe
+                        </div>
+                        <div class="text-2xl font-black text-white" id="statSafe">0</div>
+                        <div class="text-[10px] text-slate-400 mt-1">Fresh items</div>
+                    </div>
+                </div>
+
+                <!-- Search Bar & Filters -->
+                <div class="space-y-3">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="searchInput" oninput="renderInventory()" placeholder="Search spices, vegetables, milk..." class="w-full bg-slate-800/80 border border-slate-700/60 rounded-2xl pl-9 pr-4 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-all">
+                    </div>
+
+                    <!-- Category Pills Horizontal Scroll -->
+                    <div id="categoryChips" class="flex gap-2 overflow-x-auto hide-scrollbar py-1">
+                        <!-- JS injected chips -->
+                    </div>
+                </div>
+
+                <!-- Inventory Header & Sort Options -->
+                <div class="flex justify-between items-center px-1">
+                    <h2 id="inventoryListHeading" class="text-xs font-bold uppercase tracking-wider text-slate-400">Priority Inventory</h2>
+                    <select id="sortBySelect" onchange="renderInventory()" class="bg-slate-800 text-slate-300 text-xs rounded-xl px-2.5 py-1 border border-slate-700/60 focus:outline-none focus:border-emerald-500">
+                        <option value="expiryAsc">Expires Soonest</option>
+                        <option value="expiryDesc">Expires Latest</option>
+                        <option value="name">Name A-Z</option>
+                        <option value="category">Category</option>
+                    </select>
+                </div>
+
+                <!-- Dynamic Item Cards List -->
+                <div id="inventoryList" class="space-y-3">
+                    <!-- Dynamic Items render here -->
+                </div>
+
+            </section>
+
+            <!-- TAB 2: ADD ITEM (Voice & Manual Form) -->
+            <section id="tab-add" class="tab-content hidden space-y-4">
+                
+                <div class="glass-card p-5 rounded-3xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-base font-bold text-white">Add Kitchen Item</h2>
+                            <p class="text-xs text-slate-400">Speak or type your item details</p>
+                        </div>
+                        <div class="flex bg-slate-800/90 p-1 rounded-xl border border-slate-700/50 text-xs">
+                            <button type="button" id="modeBtn-manual" onclick="setAddMode('manual')" class="px-3 py-1.5 rounded-lg font-semibold transition-all bg-emerald-500 text-slate-950">
+                                Form
+                            </button>
+                            <button type="button" id="modeBtn-voice" onclick="setAddMode('voice')" class="px-3 py-1.5 rounded-lg font-semibold transition-all text-slate-400 hover:text-white">
+                                Voice
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- VOICE INPUT CONTAINER -->
+                    <div id="inputMode-voice" class="hidden text-center py-6 px-4 bg-gradient-to-b from-slate-800/60 to-slate-800/30 rounded-2xl border border-slate-700/40 space-y-4">
+                        <div class="relative inline-block">
+                            <button type="button" id="micBtn" onclick="toggleVoiceRecognition()" class="w-20 h-20 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-2xl font-bold flex items-center justify-center transition-all mx-auto active:scale-95 shadow-lg shadow-emerald-500/20">
+                                <i class="fa-solid fa-microphone" id="micIcon"></i>
+                            </button>
+                        </div>
+                        <div>
+                            <h3 id="micStatusTitle" class="text-xs font-bold uppercase tracking-wider text-emerald-400">Tap Mic & Speak</h3>
+                            <p id="micStatusDesc" class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                                Examples: <br>
+                                <span class="text-slate-200 italic font-medium">"Mutton masala expiring in 2 months"</span><br>
+                                <span class="text-slate-200 italic font-medium">"Bread 1 packet expiring in 5 days"</span>
+                            </p>
+                        </div>
+
+                        <!-- Real-time Speech Output Display -->
+                        <div id="voiceTranscriptBox" class="hidden text-left bg-slate-900/90 p-3 rounded-xl border border-slate-700 text-xs space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Listening...</span>
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                            </div>
+                            <p id="voiceTranscriptText" class="text-slate-200 italic text-xs"></p>
+                        </div>
+                    </div>
+
+                    <!-- ITEM FORM -->
+                    <form id="addItemForm" onsubmit="saveItem(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Item Name *</label>
+                            <input type="text" id="itemName" required placeholder="e.g., Mutton Masala, Fresh Milk, Bananas" class="w-full bg-slate-800/90 border border-slate-700/70 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-all">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Category</label>
+                                <select id="itemCategory" class="w-full bg-slate-800/90 border border-slate-700/70 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition-all">
+                                    <option value="Spices/Masala">🌶️ Spices / Masala</option>
+                                    <option value="Fruits">🍎 Fruits</option>
+                                    <option value="Vegetables">🥦 Vegetables</option>
+                                    <option value="Dairy">🥛 Dairy & Eggs</option>
+                                    <option value="Meat/Poultry">🍗 Meat & Poultry</option>
+                                    <option value="Snacks">🍿 Snacks & Bakery</option>
+                                    <option value="Grains">🌾 Grains & Flours</option>
+                                    <option value="Beverages">🧃 Beverages</option>
+                                    <option value="Other">🥫 Other / Canned</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Storage</label>
+                                <select id="itemLocation" class="w-full bg-slate-800/90 border border-slate-700/70 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition-all">
+                                    <option value="Pantry">📦 Pantry</option>
+                                    <option value="Fridge">❄️ Fridge</option>
+                                    <option value="Freezer">🧊 Freezer</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Expiry Date *</label>
+                                <input type="date" id="itemExpiry" required class="w-full bg-slate-800/90 border border-slate-700/70 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-all">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Quantity</label>
+                                <input type="text" id="itemQuantity" placeholder="1 unit" class="w-full bg-slate-800/90 border border-slate-700/70 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-all">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1.5">Notes / Brand</label>
+                            <input type="text" id="itemNotes" placeholder="e.g., Everest brand, sealed box" class="w-full bg-slate-800/90 border border-slate-700/70 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-all">
+                        </div>
+
+                        <div class="pt-2 flex gap-2">
+                            <button type="submit" class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold py-3 rounded-xl text-xs hover:from-emerald-400 hover:to-teal-400 transition-all active:scale-95 shadow-lg shadow-emerald-500/20">
+                                Save to Kitchen
+                            </button>
+                            <button type="button" onclick="resetForm()" class="bg-slate-800 text-slate-400 px-4 py-3 rounded-xl text-xs font-semibold hover:text-white transition-all">
+                                Clear
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- TAB 3: MEAL PLANNER -->
+            <section id="tab-planner" class="tab-content hidden space-y-4">
+                <div class="glass-card p-5 rounded-3xl space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-utensils"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-white">Smart Meal Suggestions</h2>
+                            <p class="text-xs text-slate-400">Recipes generated from items expiring soonest</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="mealSuggestionsList" class="space-y-3">
+                    <!-- Dynamic Recipe Suggestions -->
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Fixed Bottom App Navigation Bar -->
+        <nav class="glass-nav absolute bottom-0 left-0 right-0 px-6 py-3 flex justify-between items-center z-30">
+            <button onclick="switchTab('inventory')" id="nav-inventory" class="flex flex-col items-center gap-1 text-emerald-400 transition-all">
+                <i class="fa-solid fa-boxes-stacked text-lg"></i>
+                <span class="text-[10px] font-medium">Inventory</span>
+            </button>
+
+            <!-- Floating Central Add Button -->
+            <button onclick="switchTab('add')" id="nav-add" class="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 flex items-center justify-center text-xl font-bold shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 transition-all -mt-5">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+
+            <button onclick="switchTab('planner')" id="nav-planner" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition-all">
+                <i class="fa-solid fa-kitchen-set text-lg"></i>
+                <span class="text-[10px] font-medium">Meals</span>
+            </button>
+        </nav>
+
+        <!-- Notification Toast -->
+        <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-4">
+            <div class="bg-slate-800 text-white border border-slate-700 px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-semibold">
+                <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+                <span id="toastMsg">Action completed</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        // Default Sample Data
+        const defaultItems = [
+            { id: '1', name: 'Chicken Masala', category: 'Spices/Masala', location: 'Pantry', expiry: '2026-12-31', quantity: '1 box', notes: 'Everest brand' },
+            { id: '2', name: 'Mutton Masala', category: 'Spices/Masala', location: 'Pantry', expiry: '2026-12-15', quantity: '1 box', notes: 'MTR brand' },
+            { id: '3', name: 'Fresh Bananas', category: 'Fruits', location: 'Pantry', expiry: getOffsetDate(5), quantity: '1 dozen', notes: 'Eat soon' },
+            { id: '4', name: 'Whole Bread', category: 'Snacks', location: 'Pantry', expiry: getOffsetDate(2), quantity: '1 pack', notes: 'Breakfast' }
+        ];
+
+        // Global State
+        let inventory = [];
+        let currentFilterCategory = 'All';
+        let currentFilterStatus = 'all';
+        let isListening = false;
+        let recognition = null;
+
+        // Helper to calculate relative dates easily
+        function getOffsetDate(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            return d.toISOString().split('T')[0];
+        }
+
+        // Initialize App Data
+        window.addEventListener('DOMContentLoaded', () => {
+            const stored = localStorage.getItem('pantry_items_v2');
+            if (stored) {
+                try {
+                    inventory = JSON.parse(stored);
+                } catch(e) {
+                    inventory = defaultItems;
+                }
+            } else {
+                inventory = defaultItems;
+                saveToStorage();
+            }
+
+            // Set default date input in add form to +7 days
+            document.getElementById('itemExpiry').value = getOffsetDate(7);
+
+            renderCategoryChips();
+            renderInventory();
+            updateStats();
+            setupVoiceRecognition();
+        });
+
+        function saveToStorage() {
+            localStorage.setItem('pantry_items_v2', JSON.stringify(inventory));
+        }
+
+        // Tab Navigation Switcher
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            // Reset navbar button states
+            ['inventory', 'planner'].forEach(id => {
+                const btn = document.getElementById(`nav-${id}`);
+                if (btn) {
+                    btn.classList.remove('text-emerald-400');
+                    btn.classList.add('text-slate-400');
+                }
+            });
+
+            if (tabId === 'inventory' || tabId === 'planner') {
+                const activeNav = document.getElementById(`nav-${tabId}`);
+                if (activeNav) {
+                    activeNav.classList.remove('text-slate-400');
+                    activeNav.classList.add('text-emerald-400');
+                }
+            }
+
+            if (tabId === 'planner') {
+                renderMealPlanner();
+            }
+        }
+
+        // Add Mode Switcher (Form vs Voice)
+        function setAddMode(mode) {
+            const voiceSection = document.getElementById('inputMode-voice');
+            const manualBtn = document.getElementById('modeBtn-manual');
+            const voiceBtn = document.getElementById('modeBtn-voice');
+
+            if (mode === 'voice') {
+                voiceSection.classList.remove('hidden');
+                voiceBtn.className = 'px-3 py-1.5 rounded-lg font-semibold transition-all bg-emerald-500 text-slate-950';
+                manualBtn.className = 'px-3 py-1.5 rounded-lg font-semibold transition-all text-slate-400 hover:text-white';
+            } else {
+                voiceSection.classList.add('hidden');
+                manualBtn.className = 'px-3 py-1.5 rounded-lg font-semibold transition-all bg-emerald-500 text-slate-950';
+                voiceBtn.className = 'px-3 py-1.5 rounded-lg font-semibold transition-all text-slate-400 hover:text-white';
+            }
+        }
+
+        // Category Chips Rendering
+        const categories = ['All', 'Spices/Masala', 'Fruits', 'Vegetables', 'Dairy', 'Meat/Poultry', 'Snacks', 'Grains', 'Beverages', 'Other'];
+        
+        function renderCategoryChips() {
+            const container = document.getElementById('categoryChips');
+            container.innerHTML = categories.map(cat => {
+                const isActive = currentFilterCategory === cat;
+                return `
+                    <button onclick="filterByCategory('${cat}')" class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                        isActive 
+                        ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20' 
+                        : 'bg-slate-800/80 text-slate-400 hover:text-white border border-slate-700/60'
+                    }">
+                        ${getCategoryEmoji(cat)} ${cat}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function getCategoryEmoji(cat) {
+            switch(cat) {
+                case 'Spices/Masala': return '🌶️';
+                case 'Fruits': return '🍎';
+                case 'Vegetables': return '🥦';
+                case 'Dairy': return '🥛';
+                case 'Meat/Poultry': return '🍗';
+                case 'Snacks': return '🍿';
+                case 'Grains': return '🌾';
+                case 'Beverages': return '🧃';
+                default: return '📦';
+            }
+        }
+
+        function filterByCategory(cat) {
+            currentFilterCategory = cat;
+            renderCategoryChips();
+            renderInventory();
+        }
+
+        function filterByStatus(status) {
+            currentFilterStatus = (currentFilterStatus === status) ? 'all' : status;
+            renderInventory();
+        }
+
+        // Inventory List Rendering
+        function renderInventory() {
+            const container = document.getElementById('inventoryList');
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+            const sortBy = document.getElementById('sortBySelect').value;
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            let filtered = inventory.filter(item => {
+                const matchesCategory = (currentFilterCategory === 'All') || (item.category === currentFilterCategory);
+                const matchesSearch = item.name.toLowerCase().includes(searchQuery) || item.notes.toLowerCase().includes(searchQuery);
+
+                const expDate = new Date(item.expiry);
+                expDate.setHours(0,0,0,0);
+                const diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+
+                let matchesStatus = true;
+                if (currentFilterStatus === 'expired') matchesStatus = diffDays < 0;
+                if (currentFilterStatus === 'critical') matchesStatus = diffDays >= 0 && diffDays <= 7;
+                if (currentFilterStatus === 'good') matchesStatus = diffDays > 7;
+
+                return matchesCategory && matchesSearch && matchesStatus;
+            });
+
+            // Sorting
+            filtered.sort((a, b) => {
+                if (sortBy === 'expiryAsc') return new Date(a.expiry) - new Date(b.expiry);
+                if (sortBy === 'expiryDesc') return new Date(b.expiry) - new Date(a.expiry);
+                if (sortBy === 'name') return a.name.localeCompare(b.name);
+                if (sortBy === 'category') return a.category.localeCompare(b.category);
+                return 0;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="glass-card p-8 rounded-3xl text-center space-y-2">
+                        <i class="fa-solid fa-basket-shopping text-3xl text-slate-600 mb-2"></i>
+                        <p class="text-sm font-semibold text-slate-300">No Kitchen Items Found</p>
+                        <p class="text-xs text-slate-500">Tap the green "+" button to add items by voice or form.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => {
+                const expDate = new Date(item.expiry + 'T00:00:00');
+                expDate.setHours(0,0,0,0);
+                const diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+
+                // Format date as Day Month Year (e.g. 15 Dec 2026)
+                const formattedDate = expDate.toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
+
+                let statusBadge = '';
+                let borderStyle = 'border-slate-800';
+
+                if (diffDays < 0) {
+                    statusBadge = `<span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold">Expired (${formattedDate})</span>`;
+                    borderStyle = 'border-rose-500/30';
+                } else if (diffDays <= 7) {
+                    statusBadge = `<span class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold">${diffDays === 0 ? 'Today' : diffDays + ' Days'} (${formattedDate})</span>`;
+                    borderStyle = 'border-amber-500/30';
+                } else {
+                    statusBadge = `<span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-medium">${formattedDate}</span>`;
+                }
+
+                return `
+                    <div class="glass-card p-4 rounded-2xl border ${borderStyle} flex items-center justify-between gap-3 group hover:border-slate-700 transition-all">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center text-lg shrink-0">
+                                ${getCategoryEmoji(item.category)}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="text-xs font-bold text-white truncate">${escapeHtml(item.name)}</h3>
+                                    ${statusBadge}
+                                </div>
+                                <div class="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
+                                    <span><i class="fa-solid fa-box text-[9px] mr-1"></i>${item.quantity || '1 unit'}</span>
+                                    <span>•</span>
+                                    <span><i class="fa-solid fa-location-dot text-[9px] mr-1"></i>${item.location}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onclick="deleteItem('${item.id}')" class="text-slate-500 hover:text-rose-400 p-2 text-xs transition-all opacity-80 group-hover:opacity-100">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateStats() {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            let expired = 0;
+            let critical = 0;
+            let safe = 0;
+
+            inventory.forEach(item => {
+                const expDate = new Date(item.expiry);
+                expDate.setHours(0,0,0,0);
+                const diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+
+                if (diffDays < 0) expired++;
+                else if (diffDays <= 7) critical++;
+                else safe++;
+            });
+
+            document.getElementById('statExpired').textContent = expired;
+            document.getElementById('statCritical').textContent = critical;
+            document.getElementById('statSafe').textContent = safe;
+
+            const soonItems = inventory.filter(i => {
+                const d = new Date(i.expiry);
+                d.setHours(0,0,0,0);
+                const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
+                return diff >= 0 && diff <= 14;
+            });
+
+            document.getElementById('savedCountText').textContent = `${soonItems.length} Cook Ideas`;
+        }
+
+        // Form Submit Handler
+        function saveItem(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('itemName').value.trim();
+            const category = document.getElementById('itemCategory').value;
+            const location = document.getElementById('itemLocation').value;
+            const expiry = document.getElementById('itemExpiry').value;
+            const quantity = document.getElementById('itemQuantity').value.trim() || '1 unit';
+            const notes = document.getElementById('itemNotes').value.trim();
+
+            if (!name || !expiry) {
+                showToast('Please fill in required fields', 'error');
+                return;
+            }
+
+            const newItem = {
+                id: Date.now().toString(),
+                name,
+                category,
+                location,
+                expiry,
+                quantity,
+                notes
+            };
+
+            inventory.unshift(newItem);
+            saveToStorage();
+            updateStats();
+            renderInventory();
+            resetForm();
+            switchTab('inventory');
+            showToast('Added to Kitchen Inventory!', 'success');
+        }
+
+        function resetForm() {
+            document.getElementById('addItemForm').reset();
+            document.getElementById('itemExpiry').value = getOffsetDate(7);
+        }
+
+        function deleteItem(id) {
+            inventory = inventory.filter(item => item.id !== id);
+            saveToStorage();
+            updateStats();
+            renderInventory();
+            showToast('Item deleted', 'info');
+        }
+
+        // Voice Speech Recognition setup
+        function setupVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                document.getElementById('micStatusTitle').textContent = 'Voice Not Supported';
+                document.getElementById('micStatusDesc').textContent = 'Use standard browser like Chrome or Safari for voice input.';
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = true;
+
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('micBtn').classList.add('pulse-ring', 'bg-rose-500');
+                document.getElementById('micIcon').className = 'fa-solid fa-microphone-slash text-white';
+                document.getElementById('micStatusTitle').textContent = 'Listening... Speak Now';
+                document.getElementById('voiceTranscriptBox').classList.remove('hidden');
+            };
+
+            recognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                document.getElementById('voiceTranscriptText').textContent = `"${transcript}"`;
+
+                if (event.results[0].isFinal) {
+                    parseVoicePhrase(transcript);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                stopVoice();
+                showToast('Voice Recognition Error', 'error');
+            };
+
+            recognition.onend = () => {
+                stopVoice();
+            };
+        }
+
+        function toggleVoiceRecognition() {
+            if (!recognition) {
+                showToast('Voice Recognition unavailable', 'error');
+                return;
+            }
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        function stopVoice() {
+            isListening = false;
+            const micBtn = document.getElementById('micBtn');
+            if (micBtn) {
+                micBtn.classList.remove('pulse-ring', 'bg-rose-500');
+                micBtn.classList.add('bg-emerald-500');
+            }
+            document.getElementById('micIcon').className = 'fa-solid fa-microphone';
+            document.getElementById('micStatusTitle').textContent = 'Tap Mic & Speak';
+        }
+
+        // Speech Phrase Auto Parser Logic
+        function parseVoicePhrase(text) {
+            const lower = text.toLowerCase();
+
+            // Default fallback
+            let name = text;
+            let category = 'Other';
+            let location = 'Pantry';
+            let quantity = '1 unit';
+            let expiryDate = getOffsetDate(7);
+
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth(); // 0-based
+
+            // Months map
+            const monthsMap = {
+                jan: '01', january: '01',
+                feb: '02', february: '02',
+                mar: '03', march: '03',
+                apr: '04', april: '04',
+                may: '05',
+                jun: '06', june: '06',
+                jul: '07', july: '07',
+                aug: '08', august: '08',
+                sep: '09', sept: '09', september: '09',
+                oct: '10', october: '10',
+                nov: '11', november: '11',
+                dec: '12', december: '12'
+            };
+
+            // Days of week map
+            const daysOfWeek = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+
+            // Word numbers map for ordinals & digits
+            const wordNumbers = {
+                first: 1, 1: 1, second: 2, 2: 2, third: 3, 3: 3, fourth: 4, 4: 4, fifth: 5, 5: 5,
+                sixth: 6, 6: 6, seventh: 7, 7: 7, eighth: 8, 8: 8, ninth: 9, 9: 9, tenth: 10, 10: 10,
+                eleventh: 11, 11: 11, twelfth: 12, 12: 12, thirteenth: 13, 13: 13, fourteenth: 14, 14: 14,
+                fifteenth: 15, 15: 15, sixteenth: 16, 16: 16, seventeenth: 17, 17: 17, eighteenth: 18, 18: 18,
+                nineteenth: 19, 19: 19, twentieth: 20, 20: 20, twentyfirst: 21, 21: 21, twentysecond: 22, 22: 22,
+                twentythird: 23, 23: 23, twentyfourth: 24, 24: 24, twentyfifth: 25, 25: 25, twentysixth: 26, 26: 26,
+                twentyseventh: 27, 27: 27, twentyeightth: 28, 28: 28, twentyninth: 29, 29: 29, thirtieth: 30, 30: 30, thirtyfirst: 31, 31: 31
+            };
+
+            // Spoken word to numbers (e.g., "two months", "three years")
+            const wordToNum = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+
+            // Helper to get target year based on relative phrase context
+            const targetYear = lower.includes('next year') ? currentYear + 1 : currentYear;
+
+            // -------------------------------------------------------------
+            // PATTERN MATCHING RULES FOR DATES
+            // -------------------------------------------------------------
+
+            // 1. Slash/Dash format (e.g. "12/2026", "15/05/2027", "05-12-2026")
+            const slashDateMatch = lower.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            const monthYearSlashMatch = lower.match(/(\d{1,2})[\/\-](\d{4})/);
+
+            // 2. Ordinals/Days with Month (e.g., "5th of November", "fifth of Nov 2027", "November 5th")
+            const ordinalDateMatch = lower.match(/(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twentyfirst|twentysecond|twentythird|twentyfourth|twentyfifth|twentysixth|twentyseventh|twentyeightth|twentyninth|thirtieth|thirtyfirst|\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(20\d\d))?/i);
+
+            const monthFirstOrdinalMatch = lower.match(/(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twentyfirst|twentysecond|twentythird|twentyfourth|twentyfifth|twentysixth|twentyseventh|twentyeightth|twentyninth|thirtieth|thirtyfirst|\d{1,2})(?:st|nd|rd|th)?(?:\s+(20\d\d))?/i);
+
+            // 3. Month + Year only (e.g., "December 2026", "next year January", "in May 2028")
+            const monthYearMatch = lower.match(/(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(20\d\d)/i);
+            const monthOnlyMatch = lower.match(/(?:in\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)/i);
+
+            // 4. Relative Year Expressions ("in 2 years", "in two years")
+            const relYearsMatch = lower.match(/in\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+year/);
+
+            // 5. Relative Month Expressions ("in 3 months", "in three months", "next month")
+            const relMonthsMatch = lower.match(/(?:in\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+month/);
+
+            // 6. Relative Week Expressions ("in 2 weeks", "in two weeks", "next week")
+            const relWeeksMatch = lower.match(/(?:in\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+week/);
+
+            // 7. Relative Day Expressions ("in 5 days", "in five days")
+            const relDaysMatch = lower.match(/(?:in\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+day/);
+
+            // 8. Weekday Expressions ("this Monday", "next Friday", "on Saturday")
+            const weekdayMatch = lower.match(/(?:this|next)?\s*(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i);
+
+            // EXECUTE DATE PARSING
+            if (slashDateMatch) {
+                const day = slashDateMatch[1].padStart(2, '0');
+                const month = slashDateMatch[2].padStart(2, '0');
+                const year = slashDateMatch[3];
+                expiryDate = `${year}-${month}-${day}`;
+            } else if (monthYearSlashMatch) {
+                const month = monthYearSlashMatch[1].padStart(2, '0');
+                const year = monthYearSlashMatch[2];
+                const lastDay = new Date(year, parseInt(month), 0).getDate();
+                expiryDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+            } else if (ordinalDateMatch) {
+                const dayKey = ordinalDateMatch[1].toLowerCase().replace(/(st|nd|rd|th)/, '');
+                const dayNum = wordNumbers[dayKey] || parseInt(dayKey) || 1;
+                const monthName = ordinalDateMatch[2].toLowerCase();
+                const year = ordinalDateMatch[3] || targetYear;
+                const monthNum = monthsMap[monthName] || '01';
+                expiryDate = `${year}-${monthNum}-${String(dayNum).padStart(2, '0')}`;
+            } else if (monthFirstOrdinalMatch) {
+                const monthName = monthFirstOrdinalMatch[1].toLowerCase();
+                const dayKey = monthFirstOrdinalMatch[2].toLowerCase().replace(/(st|nd|rd|th)/, '');
+                const dayNum = wordNumbers[dayKey] || parseInt(dayKey) || 1;
+                const year = monthFirstOrdinalMatch[3] || targetYear;
+                const monthNum = monthsMap[monthName] || '01';
+                expiryDate = `${year}-${monthNum}-${String(dayNum).padStart(2, '0')}`;
+            } else if (monthYearMatch) {
+                const monthName = monthYearMatch[1].toLowerCase();
+                const year = monthYearMatch[2];
+                const monthNum = monthsMap[monthName] || '01';
+                const lastDay = new Date(year, parseInt(monthNum), 0).getDate();
+                expiryDate = `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`;
+            } else if (monthOnlyMatch && !lower.includes('month')) {
+                const monthName = monthOnlyMatch[1].toLowerCase();
+                const monthNum = monthsMap[monthName] || '01';
+                const year = lower.includes('next year') ? currentYear + 1 : currentYear;
+                const lastDay = new Date(year, parseInt(monthNum), 0).getDate();
+                expiryDate = `${year}-${monthNum}-${String(lastDay).padStart(2, '0')}`;
+            } else if (relYearsMatch) {
+                const val = relYearsMatch[1];
+                const count = wordToNum[val] || parseInt(val) || 1;
+                const d = new Date();
+                d.setFullYear(d.getFullYear() + count);
+                expiryDate = d.toISOString().split('T')[0];
+            } else if (relMonthsMatch || lower.includes('next month')) {
+                let count = 1;
+                if (relMonthsMatch) {
+                    const val = relMonthsMatch[1];
+                    count = wordToNum[val] || parseInt(val) || 1;
+                }
+                const d = new Date();
+                d.setMonth(d.getMonth() + count);
+                expiryDate = d.toISOString().split('T')[0];
+            } else if (relWeeksMatch || lower.includes('next week')) {
+                let count = 1;
+                if (relWeeksMatch) {
+                    const val = relWeeksMatch[1];
+                    count = wordToNum[val] || parseInt(val) || 1;
+                }
+                expiryDate = getOffsetDate(count * 7);
+            } else if (relDaysMatch) {
+                const val = relDaysMatch[1];
+                const count = wordToNum[val] || parseInt(val) || 1;
+                expiryDate = getOffsetDate(count);
+            } else if (lower.includes('today') || lower.includes('tonight')) {
+                expiryDate = getOffsetDate(0);
+            } else if (lower.includes('day after tomorrow')) {
+                expiryDate = getOffsetDate(2);
+            } else if (lower.includes('tomorrow')) {
+                expiryDate = getOffsetDate(1);
+            } else if (weekdayMatch) {
+                const targetDay = daysOfWeek[weekdayMatch[1].toLowerCase()];
+                const todayDay = now.getDay();
+                let diff = targetDay - todayDay;
+                if (diff <= 0) diff += 7; // Next occurrence
+                expiryDate = getOffsetDate(diff);
+            }
+
+            // 2. Intelligent Categorization & Name cleanup
+            if (lower.includes('masala') || lower.includes('spice') || lower.includes('chilli') || lower.includes('turmeric') || lower.includes('curry')) {
+                category = 'Spices/Masala';
+            } else if (lower.includes('bread') || lower.includes('bun') || lower.includes('biscuit') || lower.includes('cookie') || lower.includes('toast')) {
+                category = 'Snacks';
+            } else if (lower.includes('milk') || lower.includes('cheese') || lower.includes('butter') || lower.includes('curd') || lower.includes('egg') || lower.includes('yogurt')) {
+                category = 'Dairy';
+            } else if (lower.includes('chicken') || lower.includes('mutton') || lower.includes('fish') || lower.includes('meat') || lower.includes('beef') || lower.includes('pork')) {
+                category = 'Meat/Poultry';
+            } else if (lower.includes('apple') || lower.includes('banana') || lower.includes('fruit') || lower.includes('orange') || lower.includes('mango')) {
+                category = 'Fruits';
+            } else if (lower.includes('tomato') || lower.includes('onion') || lower.includes('potato') || lower.includes('vegetable') || lower.includes('spinach')) {
+                category = 'Vegetables';
+            }
+
+            // 3. Storage location detection
+            if (lower.includes('fridge') || lower.includes('refrigerator')) location = 'Fridge';
+            if (lower.includes('freezer') || lower.includes('frozen')) location = 'Freezer';
+
+            // Clean item name by stripping timing/date phrases
+            name = text.replace(/expiring.*/i, '')
+                        .replace(/expires.*/i, '')
+                        .replace(/expire.*/i, '')
+                        .replace(/next year.*/i, '')
+                        .replace(/this year.*/i, '')
+                        .replace(/in\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(year|month|week|day)s?/i, '')
+                        .replace(/(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twentyfirst|twentysecond|twentythird|twentyfourth|twentyfifth|twentysixth|twentyseventh|twentyeightth|twentyninth|thirtieth|thirtyfirst|\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?[a-z]+(?:\s+20\d\d)?/i, '')
+                        .replace(/[a-z]+\s+(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|twentyfirst|twentysecond|twentythird|twentyfourth|twentyfifth|twentysixth|twentyseventh|twentyeightth|twentyninth|thirtieth|thirtyfirst|\d{1,2})(?:st|nd|rd|th)?(?:\s+20\d\d)?/i, '')
+                        .replace(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/, '')
+                        .replace(/\d{1,2}[\/\-]\d{4}/, '')
+                        .replace(/day after tomorrow/i, '')
+                        .replace(/tomorrow/i, '')
+                        .replace(/today/i, '')
+                        .replace(/next week/i, '')
+                        .replace(/next month/i, '')
+                        .trim();
+
+            if (!name) name = text;
+
+            // Populate form controls
+            document.getElementById('itemName').value = name;
+            document.getElementById('itemCategory').value = category;
+            document.getElementById('itemLocation').value = location;
+            document.getElementById('itemExpiry').value = expiryDate;
+            document.getElementById('itemQuantity').value = quantity;
+
+            showToast('Voice parsed! Verify and tap Save', 'success');
+        }
+
+        // Render Meal Planner Suggestions based on pantry items
+        function renderMealPlanner() {
+            const container = document.getElementById('mealSuggestionsList');
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            const expiringSoon = inventory.filter(i => {
+                const d = new Date(i.expiry);
+                d.setHours(0,0,0,0);
+                const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
+                return diff >= 0 && diff <= 14;
+            });
+
+            if (expiringSoon.length === 0) {
+                container.innerHTML = `
+                    <div class="glass-card p-6 rounded-3xl text-center space-y-2">
+                        <i class="fa-solid fa-face-smile text-2xl text-emerald-400 mb-1"></i>
+                        <p class="text-xs font-semibold text-slate-200">No urgent items!</p>
+                        <p class="text-[11px] text-slate-400">All your ingredients are fresh.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = expiringSoon.map(item => `
+                <div class="glass-card p-4 rounded-2xl border border-amber-500/20 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">${getCategoryEmoji(item.category)}</span>
+                            <span class="text-xs font-bold text-white">${escapeHtml(item.name)}</span>
+                        </div>
+                        <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">Use Soon</span>
+                    </div>
+                    <p class="text-[11px] text-slate-300">Suggested dish using <strong>${escapeHtml(item.name)}</strong> before expiry.</p>
+                </div>
+            `).join('');
+        }
+
+        // Helper Utilities
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = message;
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-xmark text-rose-400';
+            } else if (type === 'info') {
+                toastIcon.className = 'fa-solid fa-circle-info text-sky-400';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+            }
+
+            toast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
